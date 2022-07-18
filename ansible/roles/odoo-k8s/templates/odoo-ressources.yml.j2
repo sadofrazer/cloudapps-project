@@ -1,0 +1,294 @@
+---
+#Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "{{ owner }}-space"
+
+---
+#Secret Odoo
+apiVersion: v1
+kind: Secret
+metadata:
+  name: odoo
+  namespace: "{{ owner }}-space"
+  labels:
+    env: prod
+    app: odoo  
+data:
+  PASSWORD: dG90bw==
+
+
+
+
+#################################ODOO#############################
+---
+#Odoo PV
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: odoo-pv
+  labels:
+    type: local
+    env: prod
+  namespace: "{{ owner }}-space"
+spec:
+  storageClassName: "odoo"
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "{{ odoo_data_storage_path }}/web-data"
+    type: DirectoryOrCreate
+
+---
+#Odoo PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: odoo-pvc
+  labels:
+    app: "{{ owner }}-odoo"
+    env: prod
+  namespace: "{{ owner }}-space"
+spec:
+  storageClassName: odoo
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+#Odoo Configmap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: odoo-config
+  namespace: "{{ owner }}-space"
+  labels:
+    env: prod
+data:
+  odoo.conf: | 
+    [options]
+    addons_path = /mnt/extra-addons
+    data_dir = /var/lib/odoo
+    ; admin_passwd = admin
+    ; csv_internal_sep = ,
+    ; db_maxconn = 64
+    ; db_name = False
+    ; db_template = template1
+    ; dbfilter = .*
+    ; debug_mode = False
+    ; email_from = False
+    ; limit_memory_hard = 2684354560
+    ; limit_memory_soft = 2147483648
+    ; limit_request = 8192
+    ; limit_time_cpu = 60
+    ; limit_time_real = 120
+    ; list_db = True
+    ; log_db = False
+    ; log_handler = [':INFO']
+    ; log_level = info
+    ; logfile = None
+    ; longpolling_port = 8072
+    ; max_cron_threads = 2
+    ; osv_memory_age_limit = 1.0
+    ; osv_memory_count_limit = False
+    ; smtp_password = False
+    ; smtp_port = 25
+    ; smtp_server = localhost
+    ; smtp_ssl = False
+    ; smtp_user = False
+    ; workers = 0
+    ; xmlrpc = True
+    ; xmlrpc_interface =
+    ; xmlrpc_port = 8069
+    ; xmlrpcs = True
+    ; xmlrpcs_interface =
+    ; xmlrpcs_port = 8071
+
+---
+#Odoo service ClusterIp
+apiVersion: v1
+kind: Service
+metadata:
+  name: odoo-svc
+  labels:
+    app: "{{ owner }}-odoo"
+    env: prod
+  namespace: "{{ owner }}-space"
+spec:
+  type: ClusterIP
+  selector:
+    app: "{{ owner }}-odoo"
+  ports:
+    - protocol: TCP
+      port: 8069
+      targetPort: 8069
+
+---
+#Deployment Odoo
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ owner }}-odoo-deployment"
+  labels:
+    app: "{{ owner }}-odoo"
+    env: prod
+  namespace: "{{ owner }}-space"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: "{{ owner }}-odoo"
+  template:
+    metadata:
+      labels:
+        app: "{{ owner }}-odoo"
+    spec:
+      containers:
+      - image: odoo:15.0
+        name: odoo
+        env:
+        - name: USER
+          value: "{{ owner }}-odoo"
+        - name: HOST
+          value: "{{ owner }}-postgres-svc"
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: odoo
+              key: PASSWORD 
+        ports:
+        - containerPort: 8069
+          name: "odoo-port"
+        volumeMounts:
+        - name: "{{ owner }}-odoo-config-storage"
+          mountPath: /etc/odoo
+        
+        - name: "{{ owner }}-odoo-config-file"
+          mountPath: /etc/odoo
+        
+        - name: "{{ owner }}-odoo-data-storage"
+          mountPath: /var/lib/odoo
+        
+        - name: "{{ owner }}-extra-addons-data-storage"
+          mountPath: /mnt/extra-addons
+      volumes:
+      - name: "{{ owner }}-odoo-config-storage"
+        hostPath:
+          path: "{{ odoo_data_storage_path }}/config"
+          type: DirectoryOrCreate
+      
+      - name: "{{ owner }}-odoo-config-file"
+        configMap:
+          name: odoo-config
+      
+      - name: "{{ owner }}-extra-addons-data-storage"
+        hostPath:
+          path: "{{ odoo_data_storage_path }}/addons"
+          type: DirectoryOrCreate
+      
+      - name: "{{ owner }}-odoo-data-storage"
+        persistentVolumeClaim:
+          claimName: odoo-pvc
+
+
+
+
+
+
+########################POSTGRES####################################
+---
+#Postgres Service ClusterIp
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: "{{ owner }}-postgres"
+    env: prod
+  name: "{{ owner }}-postgres-svc"
+  namespace: "{{ owner }}-space"
+spec:
+  ports:
+  - port: 5432
+    protocol: TCP
+    targetPort: 5432
+  selector:
+    app: "{{ owner }}-postgres"
+  type: ClusterIP
+
+---
+#Postgres PV
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv
+  labels:
+    type: local
+    env: prod
+  namespace: "{{ owner }}-space"
+spec:
+  storageClassName: postgres
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "{{ postgres_data_storage_path }}/db-data"
+    type: DirectoryOrCreate
+
+---
+#Odoo PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  labels:
+    app: "{{ owner }}-odoo"
+    env: prod
+  namespace: "{{ owner }}-space"
+spec:
+  storageClassName: postgres
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+#Postgres Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ owner }}-postgres-deployment"
+  labels:
+    app: "{{ owner }}-postgres"
+    env: prod
+  namespace: "{{ owner }}-space"
+spec:
+  containers:
+  - image: postgres:10
+    name: postgres
+    env:
+    - name: POSTGRES_DB
+      value: postgres
+    - name: POSTGRES_USER
+      value: "{{ owner }}-odoo"
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: odoo
+          key: PASSWORD
+    ports:
+    - containerPort: 5432
+      name: "postgres-port"
+    volumeMounts:
+    - name: "{{ owner }}-pg-data"
+      mountPath: /var/lib/postgresql/data
+  volumes:
+  - name: "{{ owner }}-pg-data"
+    persistentVolumeClaim:
+      claimName: postgres-pvc

@@ -1,0 +1,14 @@
+- name: create output dir for kubernetes ressources
+  file:
+    path: "/home/{{ ansible_user }}/cloudapps-k8s"
+    recurse: yes
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: generate kubernetes manifests
+  template:
+    src: "odoo-ressources.yml.j2"
+    dest: /home/{{ ansible_user }}/cloudapps-k8s/{{ owner }}-k8s-ressources.yml
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"

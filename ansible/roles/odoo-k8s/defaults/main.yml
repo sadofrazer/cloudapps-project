@@ -1,0 +1,6 @@
+---
+# defaults file for odoo-k8s
+owner: "osiris"
+odoo_data_storage_path: "/odoo-data"
+postgres_data_storage_path: "/postres-data"
+HOST_IP: localhost

@@ -1,0 +1,9 @@
+---
+# tasks file for odoo-k8s
+- name: create kubernetes ressources when its local execution
+  include_tasks: local.yml
+  when: ansible_host == "localhost" or ansible_host == "127.0.0.1"
+
+- name: create output dir for kubernetes ressources
+  include_tasks: remote.yml
+  when: (ansible_user is defined) and (ansible_host!="localhost" or ansible_host!="127.0.0.1")

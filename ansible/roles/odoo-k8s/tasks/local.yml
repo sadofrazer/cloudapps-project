@@ -1,0 +1,11 @@
+- name: create output dir for kubernetes ressources
+  file:
+    path: "{{ playbook_dir }}/cloudapps-k8s"
+    recurse: yes
+    state: directory
+
+
+- name: generate kubernetes manifests
+  template:
+    src: "odoo-ressources.yml.j2"
+    dest: "{{ playbook_dir }}/cloudapps-k8s/{{ owner }}-k8s-ressources.yml"

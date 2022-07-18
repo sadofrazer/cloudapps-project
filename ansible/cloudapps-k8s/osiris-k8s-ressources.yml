@@ -1,0 +1,244 @@
+---
+#Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "osiris-space"
+
+---
+#Secret Odoo
+apiVersion: v1
+kind: Secret
+metadata:
+  name: odoo
+  namespace: "osiris-space"
+  labels:
+    env: prod
+    app: odoo  
+data:
+  PASSWORD: dG90bw==
+
+
+
+
+#################################ODOO#############################
+---
+#Odoo PV
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: odoo-pv
+  labels:
+    type: local
+    env: prod
+  namespace: "osiris-space"
+spec:
+  storageClassName: "odoo"
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/odoo-data/web-data"
+    type: DirectoryOrCreate
+
+---
+#Odoo PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: odoo-pvc
+  labels:
+    app: "osiris-odoo"
+    env: prod
+  namespace: "osiris-space"
+spec:
+  storageClassName: odoo
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+#Odoo service ClusterIp
+apiVersion: v1
+kind: Service
+metadata:
+  name: odoo-svc
+  labels:
+    app: "osiris-odoo"
+    env: prod
+  namespace: "osiris-space"
+spec:
+  type: ClusterIP
+  selector:
+    app: "osiris-odoo"
+  ports:
+    - protocol: TCP
+      port: 8069
+      targetPort: 8069
+
+---
+#Deployment Odoo
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "osiris-odoo-deployment"
+  labels:
+    app: "osiris-odoo"
+    env: prod
+  namespace: "osiris-space"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: "osiris-odoo"
+  template:
+    metadata:
+      labels:
+        app: "osiris-odoo"
+    spec:
+      containers:
+      - image: odoo:15.0
+        name: odoo
+        env:
+        - name: USER
+          value: "osiris-odoo"
+        - name: HOST
+          value: "osiris-postgres-svc"
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: odoo
+              key: PASSWORD 
+        ports:
+        - containerPort: 8069
+          name: "odoo-port"
+        volumeMounts:
+        - name: "osiris-odoo-config-storage"
+          mountPath: /etc/odoo
+        - name: "osiris-odoo-data-storage"
+          mountPath: /var/lib/odoo
+        - name: "osiris-extra-addons-data-storage"
+          mountPath: /mnt/extra-addons
+      volumes:
+      - name: "osiris-odoo-config-storage"
+        hostPath:
+          path: "/odoo-data/config"
+          type: DirectoryOrCreate
+      - name: "osiris-extra-addons-data-storage"
+        hostPath:
+          path: "/odoo-data/addons"
+          type: DirectoryOrCreate
+      - name: "osiris-odoo-data-storage"
+        persistentVolumeClaim:
+          claimName: odoo-pvc
+
+
+
+
+
+
+########################POSTGRES####################################
+---
+#Postgres Service ClusterIp
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: "osiris-postgres"
+    env: prod
+  name: "osiris-postgres-svc"
+  namespace: "osiris-space"
+spec:
+  ports:
+  - port: 5432
+    protocol: TCP
+    targetPort: 5432
+  selector:
+    app: "osiris-postgres"
+  type: ClusterIP
+
+---
+#Postgres PV
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv
+  labels:
+    type: local
+    env: prod
+  namespace: "osiris-space"
+spec:
+  storageClassName: postgres
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/postres-data/db-data"
+    type: DirectoryOrCreate
+
+---
+#Odoo PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  labels:
+    app: "osiris-odoo"
+    env: prod
+  namespace: "osiris-space"
+spec:
+  storageClassName: postgres
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+#Postgres Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "osiris-postgres-deployment"
+  labels:
+    app: "osiris-postgres"
+    env: prod
+  namespace: "osiris-space"
+spec:
+spec:
+  replicas: 1
+  selector:
+    matchLabels: 
+      app: "osiris-postgres"
+  template:
+    metadata:
+      labels:
+        app: "osiris-postgres"
+    spec:
+      containers:
+      - image: postgres:10
+        name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: postgres
+        - name: POSTGRES_USER
+          value: "osiris-odoo"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: odoo
+              key: PASSWORD
+        ports:
+        - containerPort: 5432
+          name: "postgres-port"
+        volumeMounts:
+        - name: "osiris-pg-data"
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: "osiris-pg-data"
+        persistentVolumeClaim:
+          claimName: postgres-pvc
