@@ -32,6 +32,8 @@ services:
   {{ owner }}-db:
     container_name: "{{ owner }}-db"
     image: postgres:10
+    ports:
+      - "5432:5432"
     restart: always
     environment:
       - POSTGRES_DB=postgres
