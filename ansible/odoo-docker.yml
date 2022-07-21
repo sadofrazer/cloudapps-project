@@ -1,0 +1,5 @@
+- name: Install docker and deploy odoo
+  hosts: prod
+  roles:
+    - docker_role
+    - odoo-docker

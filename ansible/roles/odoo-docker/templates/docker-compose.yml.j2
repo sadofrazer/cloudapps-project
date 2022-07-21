@@ -1,0 +1,84 @@
+version: '2'
+services:
+  {{ owner }}-web:
+    container_name: "{{ owner }}-web"
+    image: odoo:15.0
+    restart: always
+    depends_on:
+      - {{ owner }}-db
+   # ports:
+    #  - "8080:8069"
+    tty: true
+    command: -- --dev=reload
+    environment:
+      - HOST={{ owner }}-db
+      - USER={{ db_user }}
+      - PASSWORD={{ db_pass }}
+      - PORT=5432
+      - TZ=Europe/Paris
+      - VIRTUAL_HOST={{ dns_name }}
+      - LETSENCRYPT_HOST={{ dns_name }}
+      - VIRTUAL_PORT=8069
+    volumes:
+      - {{ owner }}-odoo-web-data:/var/lib/odoo
+      - ./o_addons:/mnt/extra-addons
+      - ./o_config:/etc/odoo
+      - /etc/localtime:/etc/localtime:ro
+      - ./backup:/backup
+
+    networks:
+      - {{ owner }}-network
+
+  {{ owner }}-db:
+    container_name: "{{ owner }}-db"
+    image: postgres:10
+    restart: always
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD={{ db_pass }}
+      - POSTGRES_USER={{ db_user }}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - TZ=Europe/Paris
+    volumes:
+      - {{ owner }}-odoo-db-data:/var/lib/postgresql/data/pgdata
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - {{ owner }}-network
+
+  {{ owner }}-nginx-proxy:
+    image: jwilder/nginx-proxy
+    container_name: "{{ owner }}-nginx-proxy"
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - {{ owner }}-network
+    environment:
+      DHPARAM_GENERATION: "false"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./etc/nginx/certs:/etc/nginx/certs
+      - ./etc/nginx/vhost.d:/etc/nginx/vhost.d
+      - {{ owner }}-nginx_proxy_html:/usr/share/nginx/html
+
+  nginx-proxy-letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    container_name: "{{ owner }}-nginx-proxy-letsencrypt"
+    networks:
+      - {{ owner }}-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./etc/nginx/certs:/etc/nginx/certs
+      - ./etc/nginx/vhost.d:/etc/nginx/vhost.d
+      - {{ owner }}-nginx_proxy_html:/usr/share/nginx/html
+    environment:
+      DEFAULT_EMAIL: "{{ email_address }}"
+      NGINX_PROXY_CONTAINER: {{ owner }}-nginx-proxy
+   
+networks:
+  {{ owner }}-network:
+
+volumes:
+  {{ owner }}-odoo-web-data:
+  {{ owner }}-odoo-db-data:
+  {{ owner }}-nginx_proxy_html:

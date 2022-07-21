@@ -1,0 +1,80 @@
+version: '2'
+services:
+  web:
+    image: odoo:15.0
+    depends_on:
+      - db
+   # ports:
+    #  - "8080:8069"
+    tty: true
+    command: -- --dev=reload
+    environment:
+      - HOST=db
+      - USER=frazer-odoo
+      - PASSWORD=password
+      - PORT=5432
+      - TZ=Europe/Paris
+      - VIRTUAL_HOST=frazer.ic-group-odoo.com
+      - LETSENCRYPT_HOST=frazer.ic-group-odoo.com
+      - VIRTUAL_PORT=8069
+    volumes:
+      - odoo-web-data:/var/lib/odoo
+      - ./o_addons:/mnt/extra-addons
+      - ./o_config:/etc/odoo
+      - /etc/localtime:/etc/localtime:ro
+      - ./backup:/backup
+
+    networks:
+      - frazer-network
+
+  db:
+    image: postgres:10
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=frazer-odoo
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - TZ=Europe/Paris
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data/pgdata
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - frazer-network
+
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - frazer-network
+    environment:
+      DHPARAM_GENERATION: "false"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./etc/nginx/certs:/etc/nginx/certs
+      - ./etc/nginx/vhost.d:/etc/nginx/vhost.d
+      - nginx_proxy_html:/usr/share/nginx/html
+
+  nginx-proxy-letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    container_name: nginx-proxy-letsencrypt
+    networks:
+      - frazer-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./etc/nginx/certs:/etc/nginx/certs
+      - ./etc/nginx/vhost.d:/etc/nginx/vhost.d
+      - nginx_proxy_html:/usr/share/nginx/html
+    environment:
+      DEFAULT_EMAIL: sadofrazer@gmail.com
+      NGINX_PROXY_CONTAINER: nginx-proxy
+   
+networks:
+  frazer-network:
+
+volumes:
+  odoo-web-data:
+  odoo-db-data:
+  nginx_proxy_html:

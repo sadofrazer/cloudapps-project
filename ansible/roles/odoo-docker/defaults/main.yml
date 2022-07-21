@@ -1,0 +1,8 @@
+---
+# defaults file for odoo-docker
+owner: osiris
+db_user: odoo
+db_pass: odoo
+dns_name: "odoo.cloudapps-cm.com"
+email_address: "sadofrazer@yahoo.fr"
+HOST_IP: localhost

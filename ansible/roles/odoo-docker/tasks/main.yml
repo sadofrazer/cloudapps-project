@@ -1,0 +1,55 @@
+---
+# tasks file for odoo-docker
+- name: Install unzip to decompress modules
+  package:
+    name: unzip
+    state: present
+
+- name: create output dir for docker ressources
+  file:
+    path: "/home/{{ ansible_user }}/cloudapps-{{ owner }}/o_config"
+    recurse: yes
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: create output dir for docker ressources
+  file:
+    path: "/home/{{ ansible_user }}/cloudapps-{{ owner }}/o_addons"
+    recurse: yes
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: copy config file on remote host
+  copy:
+    src: "odoo.conf"
+    dest: "/home/{{ ansible_user }}/cloudapps-{{ owner }}/o_config/odoo.conf"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: copy account module on remote host
+  unarchive:
+    src: "om_account_accountant-15.0.6.3.0.zip"
+    dest: "/home/{{ ansible_user }}/cloudapps-{{ owner }}/o_addons"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: copy payroll module on remote host
+  unarchive:
+    src: "om_hr_payroll_account-15.0.4.0.0.zip"
+    dest: "/home/{{ ansible_user }}/cloudapps-{{ owner }}/o_addons"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: generate docker compose on remote host
+  template:
+    src: "docker-compose.yml.j2"
+    dest: /home/{{ ansible_user }}/cloudapps-{{ owner }}/docker-compose.yml
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: execute docker-compose file to create ressources
+  shell:
+    cmd: "docker-compose up -d"
+    chdir: "/home/{{ ansible_user }}/cloudapps-osiris"

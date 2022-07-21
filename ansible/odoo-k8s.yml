@@ -1,0 +1,4 @@
+- name: Create kubernetes manifests
+  hosts: prod
+  roles:
+    - odoo-k8s

@@ -120,7 +120,7 @@ metadata:
     env: prod
   namespace: "{{ owner }}-space"
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: "{{ owner }}-odoo"
   ports:
@@ -139,7 +139,7 @@ metadata:
     env: prod
   namespace: "{{ owner }}-space"
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: "{{ owner }}-odoo"
@@ -165,23 +165,12 @@ spec:
         - containerPort: 8069
           name: "odoo-port"
         volumeMounts:
-        - name: "{{ owner }}-odoo-config-storage"
-          mountPath: /etc/odoo
-        
         - name: "{{ owner }}-odoo-config-file"
           mountPath: /etc/odoo
-        
-        - name: "{{ owner }}-odoo-data-storage"
-          mountPath: /var/lib/odoo
         
         - name: "{{ owner }}-extra-addons-data-storage"
           mountPath: /mnt/extra-addons
       volumes:
-      - name: "{{ owner }}-odoo-config-storage"
-        hostPath:
-          path: "{{ odoo_data_storage_path }}/config"
-          type: DirectoryOrCreate
-      
       - name: "{{ owner }}-odoo-config-file"
         configMap:
           name: odoo-config
@@ -190,10 +179,6 @@ spec:
         hostPath:
           path: "{{ odoo_data_storage_path }}/addons"
           type: DirectoryOrCreate
-      
-      - name: "{{ owner }}-odoo-data-storage"
-        persistentVolumeClaim:
-          claimName: odoo-pvc
 
 
 
@@ -263,7 +248,7 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{ owner }}-postgres-deployment"
+  name: "{{ owner }}-postgres-pod"
   labels:
     app: "{{ owner }}-postgres"
     env: prod
@@ -292,3 +277,30 @@ spec:
   - name: "{{ owner }}-pg-data"
     persistentVolumeClaim:
       claimName: postgres-pvc
+
+
+
+
+##################INGRESS#################
+---
+#Ingress rule
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    kubernetes.io/ingress.class: nginx
+  name: "{{ owner }}-odoo-ingress"
+  namespace: "{{ owner }}-space"
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name:  odoo-svc
+            port:
+              number: 8069
+        path: "/{{ owner }}"
+        pathType: Prefix
