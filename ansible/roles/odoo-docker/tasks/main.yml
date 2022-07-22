@@ -28,19 +28,18 @@
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
 
-- name: copy account module on remote host
+- name: copy extra modules on remote host
   unarchive:
-    src: "om_account_accountant-15.0.6.3.0.zip"
+    src: "{{ item }}"
     dest: "/home/{{ ansible_user }}/cloudapps-{{ owner }}/o_addons"
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
+  loop:
+    - om_account_accountant-15.0.6.3.0.zip
+    - om_hr_payroll_account-15.0.4.0.0.zip
+    - muk_web_theme-15.0.1.0.1.zip
+    - developer_mode-15.0.1.0.0.zip
 
-- name: copy payroll module on remote host
-  unarchive:
-    src: "om_hr_payroll_account-15.0.4.0.0.zip"
-    dest: "/home/{{ ansible_user }}/cloudapps-{{ owner }}/o_addons"
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
 
 - name: generate docker compose on remote host
   template:
@@ -51,5 +50,5 @@
 
 - name: execute docker-compose file to create ressources
   shell:
-    cmd: "docker-compose up -d"
+    cmd: "docker-compose up -d --force-recreate"
     chdir: "/home/{{ ansible_user }}/cloudapps-osiris"
