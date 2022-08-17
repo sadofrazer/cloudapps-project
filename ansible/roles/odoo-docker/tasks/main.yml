@@ -39,6 +39,7 @@
     - om_hr_payroll_account-15.0.4.0.0.zip
     - muk_web_theme-15.0.1.0.1.zip
     - developer_mode-15.0.1.0.0.zip
+    - odoo_dynamic_dashboard-15.0.1.0.1.zip
 
 
 - name: generate docker compose on remote host
@@ -51,4 +52,4 @@
 - name: execute docker-compose file to create ressources
   shell:
     cmd: "docker-compose up -d --force-recreate"
-    chdir: "/home/{{ ansible_user }}/cloudapps-osiris"
+    chdir: "/home/{{ ansible_user }}/cloudapps-{{ owner }}"
